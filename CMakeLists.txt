@@ -1,7 +1,7 @@
 project(SimpleClient)
 cmake_minimum_required(VERSION 2.8)
 
-set(CMAKE_CXX_FLAGS "-Wall")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 # Other version of GCC, fix later.
 set(CMAKE_CXX_COMPILER "/usr/local/bin/g++")
 set(CMAKE_LIBRARY_PATH "/usr/local/lib64")

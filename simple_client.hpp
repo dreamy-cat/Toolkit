@@ -6,10 +6,13 @@
 #include <future>
 
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <memory.h>
 
 class SimpleClient {
 public:
