@@ -24,11 +24,62 @@ SimpleClient::SimpleClient(string newName) : name(newName)
         inet_ntop(AF_INET, &netAddr, addrStr, INET_ADDRSTRLEN);
         cout << "Get net info, " << ent1->n_name << ", address " << addrStr << endl;
     }
-    runDebugServer();
+    // runDebugServer();
+    addrinfo addrHints, *addrResult, *addrInfo;
+    const int bufSize = 1024;
+    char buf[bufSize];
+    memset(&addrHints, 0, sizeof(struct addrinfo));
+    addrHints.ai_family = AF_UNSPEC;
+    addrHints.ai_socktype = SOCK_DGRAM;
+    addrHints.ai_flags = 0;
+    addrHints.ai_protocol = 0;
+    int soc;
+    char host[] = "127.0.0.1", port[] = "50000";
+    int r = getaddrinfo(host, port, &addrHints, &addrResult);
+    if (r != 0) {
+        cout << "Error getting address information." << gai_strerror(r) << endl;
+        return;
+    }
+    for (addrInfo = addrResult; addrInfo != NULL; addrInfo = addrInfo->ai_next) {
+        soc = socket(addrInfo->ai_family, addrInfo->ai_socktype,
+                     addrInfo->ai_protocol);
+        if (soc == -1)
+            continue;
+        if (connect(soc, addrInfo->ai_addr, addrInfo->ai_addrlen) != -1) {
+            cout << "Connecting to server, ok." << endl;
+            break;
+        }
+        close(soc);
+    }
+    if (addrInfo == NULL) {
+        cout << "Could not connect to server." << endl;
+        return;
+    }
+    freeaddrinfo(addrResult);
+    const char *messages[] = { "one", "two", "three", "four", "five" };
+    for (int i = 0; i < 5; i++) {
+        size_t len = strlen(messages[i]) + 1;
+        if (len + 1 > bufSize) {
+            cout << "Error, message too long." << endl;
+            return;
+        }
+        if (write(soc, messages[i], len) != len) {
+            cout << "Error writing data to socket." << endl;
+            return;
+        }
+        ssize_t nread = read(soc, buf, bufSize);
+        if (nread == -1) {
+            cout << "Error reading response from server." << endl;
+            return;
+        }
+        cout << "Received " << nread << " bytes from server: " << buf << endl;
+    }
+
 }
 
 void SimpleClient::runDebugServer()
 {
+    cout << "Starting server..." << endl;
     /*
     server.sa_family = AF_INET;
     debugServer = socket(server.sa_family, SOCK_STREAM, 0);
@@ -46,72 +97,56 @@ void SimpleClient::runDebugServer()
 */
     // auto serverF = async(std::launch::async, sendingDebugData);
 
-    char addrStr[64];
     addrinfo addrHints, *addrResult, *addrInfo;
-    memset(&addrHints, 0, sizeof( addrinfo));
+    const int bufSize = 1024;
+    char buf[bufSize];
+    memset(&addrHints, 0, sizeof(struct addrinfo));
     addrHints.ai_family = AF_UNSPEC;
-    addrHints.ai_socktype = SOCK_STREAM;
+    addrHints.ai_socktype = SOCK_DGRAM;
     addrHints.ai_flags = AI_PASSIVE;
     addrHints.ai_protocol = 0;
     addrHints.ai_canonname = NULL;
     addrHints.ai_addr = NULL;
     addrHints.ai_next = NULL;
-    char serv[] = "50000";
-    int s = getaddrinfo(NULL, serv, &addrHints, &addrResult);
-    if ( s == -1) cout << "Error getaddrinfo(), " << gai_strerror(s) << endl;
-    cout << "getaddrinfo, " << s << endl;
-    for (addrInfo = addrResult; addrInfo != NULL; addrInfo = addrInfo->ai_next) {
-        // cout << "Name: " << addrInfo->ai_canonname << endl;
-
-        cout << "Family addrinfo " << addrInfo->ai_family << endl;
-
-        if ( addrInfo->ai_family == AF_INET) cout << "INET" << endl;
-        if ( addrInfo->ai_family == AF_INET6) cout << "INET6" << endl;
-        cout << "Protocol, ";
-        if ( addrInfo->ai_protocol == IPPROTO_TCP) cout << "TCP" << endl;
-        cout << "Socket type, ";
-        if (addrInfo->ai_socktype == SOCK_STREAM) cout << " stream" << endl;
-
-        cout << "Address data: ";
-        for (int i = 0; i < 8; ++i) cout << (int)addrInfo->ai_addr->sa_data[i] << " ";
-        cout << endl;
-
-        sockaddr_in *sockIn = (sockaddr_in*) addrInfo->ai_addr;
-        const char *iPtr;
-        iPtr = inet_ntop(AF_INET, &sockIn->sin_addr, addrStr, INET_ADDRSTRLEN);
-        cout << "Adress from addrInfo is " << addrStr << endl;
+    char port[] = "50000";
+    int soc, r;
+    if ((r = getaddrinfo(NULL, port, &addrHints, &addrResult)) != 0) {
+        cout << "Error getting address information." << gai_strerror(r) << endl;
+        return;
     }
-    int socFD;
     for (addrInfo = addrResult; addrInfo != NULL; addrInfo = addrInfo->ai_next) {
-        socFD = socket(addrInfo->ai_family, addrInfo->ai_socktype, addrInfo->ai_protocol);
-        if (socFD == -1)
+        soc = socket(addrInfo->ai_family, addrInfo->ai_socktype,
+                     addrInfo->ai_protocol);
+        if (soc == -1)
             continue;
-        if (bind(socFD, addrInfo->ai_addr, addrInfo->ai_addrlen) == 0) {
-            cout << "Success." << endl;
+        if (bind(soc, addrInfo->ai_addr, addrInfo->ai_addrlen) == 0) {
+            cout << "Bind socket ok." << endl;
             break;
         }
-        close(socFD);
+        close(soc);
     }
-    if (addrInfo == NULL) cout << "Could not bind address to socket.\n" << endl;
-    // Testing loop...
-    sockaddr_storage peerPtr;
+    if (addrInfo == NULL) {
+        cout << "Could not bind socket." << endl;
+        return;
+    }
+    freeaddrinfo(addrResult);
+    sockaddr_storage peerAddr;
     socklen_t peerAddrLen;
-    char buffer[1024];
     for (;;) {
         peerAddrLen = sizeof(struct sockaddr_storage);
-        int actual = recvfrom(socFD, buffer, 1024, 0, (struct sockaddr *) &peerPtr, &peerAddrLen);
-        if (actual == -1) {
-            // cout << "Attempt failed to connect failed." << endl;
+        ssize_t nread = recvfrom(soc, buf, bufSize, 0, (struct sockaddr *) &peerAddr, &peerAddrLen);
+        if (nread == -1) {
+            cout << "Request failed, waiting next one." << endl;
             continue;
         }
         char host[NI_MAXHOST], service[NI_MAXSERV];
-        int r = getnameinfo((struct sockaddr *) &peerPtr, peerAddrLen, host, NI_MAXHOST, service, NI_MAXSERV, NI_NUMERICSERV);
+        r = getnameinfo((struct sockaddr *) &peerAddr, peerAddrLen, host, NI_MAXHOST, service, NI_MAXSERV, NI_NUMERICSERV);
         if (r == 0)
-            cout << "Recived "  << actual << " bytes from " << host << ":" << service << endl;
+            cout << "Received " << nread << " bytes from " << host << ":" << service << endl;
         else
-            cout << "Error, getnameinfo: " << gai_strerror(r);
-        if (sendto(socFD, buffer, actual, 0, (struct sockaddr *) &peerPtr, peerAddrLen) != actual)
-            cout << "Error sending response to client." << endl;
+            cout << "Error getting name information: " << gai_strerror(r) << endl;
+        if (sendto(soc, buf, nread, 0, (struct sockaddr *) &peerAddr, peerAddrLen) != nread)
+            cout << "Error sending response." << endl;
     }
 }
 
