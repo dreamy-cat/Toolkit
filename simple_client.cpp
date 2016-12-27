@@ -8,23 +8,14 @@ int SimpleClient::totalClients = 0;
 
 sockaddr SimpleClient::server;
 
-SimpleClient::SimpleClient(string newName) : name(newName)
+map<int, string> SimpleClient::addrType;
+
+SimpleClient::SimpleClient()
 {
-    cout << "Creating simple client, id = " << name << endl;
-    // testing...
-    unsigned char addr[4] = { 192, 168, 0, 1 };
-    char addrStr[64];
-    inet_ntop(AF_INET, addr, addrStr, INET_ADDRSTRLEN);
-    cout << addrStr << endl;
-    hostent* entry = gethostent();
-    if ( entry ) cout << "Gethost ok, entry " << entry->h_name << endl;
-    netent* ent1 = getnetent();
-    if ( ent1 ) {
-        auto netAddr = ent1->n_net;
-        inet_ntop(AF_INET, &netAddr, addrStr, INET_ADDRSTRLEN);
-        cout << "Get net info, " << ent1->n_name << ", address " << addrStr << endl;
-    }
+    cout << "Creating simple client, id = " << totalClients++ << endl;
+
     // runDebugServer();
+    /*
     addrinfo addrHints, *addrResult, *addrInfo;
     const int bufSize = 1024;
     char buf[bufSize];
@@ -74,29 +65,66 @@ SimpleClient::SimpleClient(string newName) : name(newName)
         }
         cout << "Received " << nread << " bytes from server: " << buf << endl;
     }
-
+*/
 }
 
 void SimpleClient::runDebugServer()
 {
-    cout << "Starting server..." << endl;
-    /*
-    server.sa_family = AF_INET;
-    debugServer = socket(server.sa_family, SOCK_STREAM, 0);
-    cout << "Starting debug server, " << debugServer << endl;
-    // cout << "Server info"
-    totalClients++;
-    cout << "Bind socket, " << bind(debugServer, &server, sizeof(server)) << endl;
-    /*
-    for (int i = 0; i < 12; i++) {
-        cout << (int)server.sa_data[i] << endl;
+    cout << "Starting server and getting system configuration.\n";
+    char addrString[64];
+    hostent* hostEntry;
+    cout << "List of entries at net configuration, or empty if error or nothing to show.\n";
+    addrType = { {AF_INET, "IPv4"}, {AF_INET6, "IPv6"} };
+    while ( (hostEntry = gethostent()) !=  NULL ) {
+        cout << "Host name: " << hostEntry->h_name;
+        // inet_ntop(AF_INET, *hostEntry->h_aliases, addrStr, INET_ADDRSTRLEN);
+        cout << ", aliases: " << hostEntry->h_aliases;
+        cout << ", type: " << addrType[hostEntry->h_addrtype];
+        cout << ", address length in bytes: " << hostEntry->h_length;
+        cout << ", network adresses: ";
+        for (char** aPtr = hostEntry->h_addr_list; *aPtr != nullptr; aPtr++) {
+            inet_ntop(AF_INET, *aPtr, addrString, INET_ADDRSTRLEN);
+            cout << addrString << " ";
+        }
+        cout << endl;
     }
+    cout << "Network configuration or empty list if something goes wrong.\n";
+    netent *netEntry;
+    while ( (netEntry = getnetent()) != nullptr ) {
+        cout << "Network: " << netEntry->n_name;
+        // inet_ntop(AF_INET, *netEntry->n_aliases, addrStr, INET_ADDRSTRLEN);
+        cout << ", aliases: " << netEntry->n_aliases;
+        cout << ", type: " << addrType[netEntry->n_addrtype];
+        cout << ", net id: " << netEntry->n_net;
+        cout << endl;
+    }
+    cout << "All services available or empty if error(/etc/services) by default.\n";
+    servent *serviceEntry;
+    while ( (serviceEntry = getservent()) != nullptr ) {
+        cout << "Service: " << serviceEntry->s_name;
+        cout << ", aliases: " << serviceEntry->s_aliases;
+        cout << ", port: " << serviceEntry->s_port;
+        cout << ", protocol: " << serviceEntry->s_proto;
+        cout << endl;
+    }
+    cout << "Addrinfo list: \n";
+    addrinfo *aiList, *aiPtr, hint;
+    hint.ai_flags = AI_CANONNAME;
+    hint.ai_family = 0;
+    hint.ai_socktype = 0;
+    hint.ai_protocol = 0;
+    hint.ai_addrlen = 0;
+    hint.ai_canonname = NULL;
+    hint.ai_addr = NULL;
+    hint.ai_next = NULL;
+    int r;
+    if ((r = getaddrinfo("localhost", NULL, &hint, &aiList)) != 0)
+        cout << "Error calling getaddrinfo " << gai_strerror(r) << endl;
 
-    cout << server.sa_data << sizeof(server) << endl;
-    cout << "Server starting listen, " << listen(debugServer, 1024) << endl;
-*/
-    // auto serverF = async(std::launch::async, sendingDebugData);
+    sockaddr_in soc;
+    cout << "Size of 'sockadr_in' structure is " << sizeof(soc) << " bytes." << endl;
 
+/*
     addrinfo addrHints, *addrResult, *addrInfo;
     const int bufSize = 1024;
     char buf[bufSize];
@@ -148,21 +176,10 @@ void SimpleClient::runDebugServer()
         if (sendto(soc, buf, nread, 0, (struct sockaddr *) &peerAddr, peerAddrLen) != nread)
             cout << "Error sending response." << endl;
     }
+    */
 }
 
 void SimpleClient::stopDebugServer()
 {
     cout << "Stopping debug server " << close(debugServer) << endl;
-    totalClients--;
-}
-
-void SimpleClient::sendingDebugData()
-{
-    int client;
-    char buf[1024] = "abcdefgh";
-    /*
-        client = accept(debugServer, NULL, NULL );
-        send(client, &buf, 5, 0);
-        cout << "Data has sent..." << endl;
-    */
 }

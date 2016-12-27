@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <future>
+#include <map>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -16,20 +17,20 @@
 
 class SimpleClient {
 public:
-    explicit SimpleClient(std::string newName = "default");
+    explicit SimpleClient();
     ~SimpleClient() = default;
+    void request();
     static void runDebugServer();
     static void stopDebugServer();
-    static void sendingDebugData();
 protected:
 private:
     SimpleClient(const SimpleClient&);
     SimpleClient& operator=(const SimpleClient&);
     SimpleClient(SimpleClient&&);
 
-    std::string name;
     static int debugServer, totalClients;
     static sockaddr server;
+    static std::map<int, std::string> addrType;
 };
 
 #endif
