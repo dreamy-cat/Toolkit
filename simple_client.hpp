@@ -30,7 +30,7 @@ private:
 
     static int debugServer, totalClients;
     static sockaddr server;
-    static std::map<int, std::string> addrType;
+    // static std::map<int, std::string> addrType;
 };
 
 #endif

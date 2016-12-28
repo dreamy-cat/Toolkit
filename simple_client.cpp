@@ -8,7 +8,7 @@ int SimpleClient::totalClients = 0;
 
 sockaddr SimpleClient::server;
 
-map<int, string> SimpleClient::addrType;
+
 
 SimpleClient::SimpleClient()
 {
@@ -72,9 +72,9 @@ void SimpleClient::runDebugServer()
 {
     cout << "Starting server and getting system configuration.\n";
     char addrString[64];
+    map<int, string> addrType = { {AF_INET, "IPv4"}, {AF_INET6, "IPv6"} };
     hostent* hostEntry;
     cout << "List of entries at net configuration, or empty if error or nothing to show.\n";
-    addrType = { {AF_INET, "IPv4"}, {AF_INET6, "IPv6"} };
     while ( (hostEntry = gethostent()) !=  NULL ) {
         cout << "Host name: " << hostEntry->h_name;
         // inet_ntop(AF_INET, *hostEntry->h_aliases, addrStr, INET_ADDRSTRLEN);
@@ -107,7 +107,7 @@ void SimpleClient::runDebugServer()
         cout << ", protocol: " << serviceEntry->s_proto;
         cout << endl;
     }
-    cout << "Addrinfo list: \n";
+    cout << "Addreses information list: \n";
     addrinfo *aiList, *aiPtr, hint;
     hint.ai_flags = AI_CANONNAME;
     hint.ai_family = 0;
@@ -120,9 +120,35 @@ void SimpleClient::runDebugServer()
     int r;
     if ((r = getaddrinfo("localhost", NULL, &hint, &aiList)) != 0)
         cout << "Error calling getaddrinfo " << gai_strerror(r) << endl;
-
-    sockaddr_in soc;
-    cout << "Size of 'sockadr_in' structure is " << sizeof(soc) << " bytes." << endl;
+    map<int, string> flagNames = { {0, "0"}, {AI_PASSIVE, "passive"}, {AI_CANONNAME, "canonical"},
+                                   {AI_NUMERICHOST, "numeric host"}, {AI_NUMERICSERV, "numeric service"} };
+    map<int, string> familyNames = { {AF_INET, "IPv4"}, {AF_INET6, "IPv6"}, {AF_UNIX, "unix"}, {AF_UNSPEC, "unspecified"} };
+    map<int, string> sockTypeNames = { {SOCK_STREAM, "stream"}, {SOCK_DGRAM, "datagram"}, {SOCK_SEQPACKET, "seqpacket"},
+                                       {SOCK_RAW, "raw"} };
+    map<int, string> protocolNames = { {0, "default"}, {IPPROTO_TCP, "TCP"}, {IPPROTO_UDP, "UDP"}, {IPPROTO_RAW, "RAW"} };
+    for (aiPtr = aiList; aiPtr != NULL; aiPtr = aiPtr->ai_next) {
+        cout << "Flags: " << flagNames[aiPtr->ai_flags];
+        cout << ", family: " << familyNames[aiPtr->ai_family];
+        if ( aiPtr->ai_family == AF_INET ) {
+            sockaddr_in *sockIn = (sockaddr_in*)aiPtr->ai_addr;
+            const char* addr = inet_ntop(AF_INET, &sockIn->sin_addr, addrString, INET_ADDRSTRLEN);
+            cout << ":" << addrString << ", port:" << ntohs(sockIn->sin_port);
+        }
+        cout << ", socket type: " << sockTypeNames[aiPtr->ai_socktype];
+        cout << ", protocol: " << protocolNames[aiPtr->ai_protocol];
+        cout << endl;
+    }
+    int serverD = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    sockaddr *socketServer = aiList->ai_addr;
+    sockaddr_in *sPtr = (sockaddr_in *)socketServer;
+    const char* addr = inet_ntop(AF_INET, &sPtr->sin_addr, addrString, INET_ADDRSTRLEN);
+    sPtr->sin_port = 50000;
+    cout << "Size of 'sockadr_in' structure is " << sizeof(socketServer) << " bytes." << endl;
+    int res = bind(serverD, socketServer, aiList->ai_addrlen);
+    cout << "Socket " << serverD << ", address: " << addrString << ", port:" << sPtr->sin_port << " " << res << endl;
+    socklen_t defaultLen = INET_ADDRSTRLEN;
+    addr = inet_ntop(AF_INET, &sPtr->sin_addr, addrString, INET_ADDRSTRLEN);
+    cout << "Get socket name " << getsockname(serverD, socketServer, &defaultLen) << endl;
 
 /*
     addrinfo addrHints, *addrResult, *addrInfo;
