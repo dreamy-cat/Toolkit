@@ -2,8 +2,8 @@
 
 int main(int argc, char *argv[])
 {
-    SimpleClient::runDebugServer();
-    // SimpleClient client;
-    SimpleClient::stopDebugServer();
+    std::future<void> localServer(async(std::launch::async, SimpleClient::runLocalServer));
+    SimpleClient client;
+    localServer.wait();
     return 0;
 }

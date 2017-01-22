@@ -20,17 +20,13 @@ public:
     explicit SimpleClient();
     ~SimpleClient() = default;
     void request();
-    static void runDebugServer();
-    static void stopDebugServer();
+    static void runLocalServer();
 protected:
 private:
     SimpleClient(const SimpleClient&);
     SimpleClient& operator=(const SimpleClient&);
     SimpleClient(SimpleClient&&);
-
-    static int debugServer, totalClients;
-    static sockaddr server;
-    // static std::map<int, std::string> addrType;
+    static int serverShots, serverShotsMax, totalClients;
 };
 
 #endif

@@ -2,75 +2,48 @@
 
 using namespace std;
 
-int SimpleClient::debugServer = 0;
+int SimpleClient::serverShots = 0;
+
+int SimpleClient::serverShotsMax = 5;
 
 int SimpleClient::totalClients = 0;
 
-sockaddr SimpleClient::server;
-
-
-
 SimpleClient::SimpleClient()
 {
+    this_thread::sleep_for(chrono::seconds(1));
     cout << "Creating simple client, id = " << totalClients++ << endl;
-
-    // runDebugServer();
-    /*
-    addrinfo addrHints, *addrResult, *addrInfo;
-    const int bufSize = 1024;
-    char buf[bufSize];
-    memset(&addrHints, 0, sizeof(struct addrinfo));
-    addrHints.ai_family = AF_UNSPEC;
-    addrHints.ai_socktype = SOCK_DGRAM;
-    addrHints.ai_flags = 0;
-    addrHints.ai_protocol = 0;
-    int soc;
-    char host[] = "127.0.0.1", port[] = "50000";
-    int r = getaddrinfo(host, port, &addrHints, &addrResult);
-    if (r != 0) {
-        cout << "Error getting address information." << gai_strerror(r) << endl;
+    const char serverIP[] = "127.0.0.1";
+    int serverPort = 50000;
+    int socketClient = socket(AF_INET, SOCK_STREAM, 0);
+    if (socketClient < 0) {
+        cout << "Can't open socket." << endl;
         return;
     }
-    for (addrInfo = addrResult; addrInfo != NULL; addrInfo = addrInfo->ai_next) {
-        soc = socket(addrInfo->ai_family, addrInfo->ai_socktype,
-                     addrInfo->ai_protocol);
-        if (soc == -1)
-            continue;
-        if (connect(soc, addrInfo->ai_addr, addrInfo->ai_addrlen) != -1) {
-            cout << "Connecting to server, ok." << endl;
-            break;
-        }
-        close(soc);
-    }
-    if (addrInfo == NULL) {
-        cout << "Could not connect to server." << endl;
+    sockaddr socketAddr;
+    sockaddr_in *sPtr = (sockaddr_in*)&socketAddr;
+    sPtr->sin_family = AF_INET;
+    sPtr->sin_port = serverPort;
+    if ( inet_pton(AF_INET, serverIP, (void*)&sPtr->sin_addr) == -1 ) {
+        cout << "Error in address." << endl;
         return;
     }
-    freeaddrinfo(addrResult);
-    const char *messages[] = { "one", "two", "three", "four", "five" };
-    for (int i = 0; i < 5; i++) {
-        size_t len = strlen(messages[i]) + 1;
-        if (len + 1 > bufSize) {
-            cout << "Error, message too long." << endl;
-            return;
-        }
-        if (write(soc, messages[i], len) != len) {
-            cout << "Error writing data to socket." << endl;
-            return;
-        }
-        ssize_t nread = read(soc, buf, bufSize);
-        if (nread == -1) {
-            cout << "Error reading response from server." << endl;
-            return;
-        }
-        cout << "Received " << nread << " bytes from server: " << buf << endl;
+    cout << "Creating socket ok.\n";
+    cout << "Connecting... " << connect(socketClient, &socketAddr, INET_ADDRSTRLEN) << endl;
+    char buffer[32];
+    int bytesReaded;
+    auto start = chrono::system_clock::now();
+    while ( chrono::system_clock::now() < start + chrono::seconds(3)) {
+        bytesReaded = recv(socketClient, buffer, 32, 0);
+        string timeStamp(buffer, bytesReaded);
+        cout << "Client recived  " << bytesReaded << " bytes, buffer: " << timeStamp;
+        // this_thread::sleep_for(chrono::seconds(1));
     }
-*/
+    cout << "Client closing socket, " << close(socketClient) << endl;
 }
 
-void SimpleClient::runDebugServer()
+void SimpleClient::runLocalServer()
 {
-    cout << "Starting server and getting system configuration.\n";
+    cout << "Starting local server and getting system configuration.\n";
     char addrString[64];
     map<int, string> addrType = { {AF_INET, "IPv4"}, {AF_INET6, "IPv6"} };
     hostent* hostEntry;
@@ -98,6 +71,7 @@ void SimpleClient::runDebugServer()
         cout << ", net id: " << netEntry->n_net;
         cout << endl;
     }
+    /*
     cout << "All services available or empty if error(/etc/services) by default.\n";
     servent *serviceEntry;
     while ( (serviceEntry = getservent()) != nullptr ) {
@@ -107,6 +81,7 @@ void SimpleClient::runDebugServer()
         cout << ", protocol: " << serviceEntry->s_proto;
         cout << endl;
     }
+    */
     cout << "Addreses information list: \n";
     addrinfo *aiList, *aiPtr, hint;
     hint.ai_flags = AI_CANONNAME;
@@ -145,67 +120,34 @@ void SimpleClient::runDebugServer()
     sPtr->sin_port = 50000;
     cout << "Size of 'sockadr_in' structure is " << sizeof(socketServer) << " bytes." << endl;
     int res = bind(serverD, socketServer, aiList->ai_addrlen);
-    cout << "Socket " << serverD << ", address: " << addrString << ", port:" << sPtr->sin_port << " " << res << endl;
+    cout << "Socket " << serverD << ", address: " << addrString << ", port:" << sPtr->sin_port;
+    if (!res) cout << ", binding socket ok." << endl; else
+        cout << ", error binding socket." << endl;
     socklen_t defaultLen = INET_ADDRSTRLEN;
     addr = inet_ntop(AF_INET, &sPtr->sin_addr, addrString, INET_ADDRSTRLEN);
-    cout << "Get socket name " << getsockname(serverD, socketServer, &defaultLen) << endl;
-
-/*
-    addrinfo addrHints, *addrResult, *addrInfo;
-    const int bufSize = 1024;
-    char buf[bufSize];
-    memset(&addrHints, 0, sizeof(struct addrinfo));
-    addrHints.ai_family = AF_UNSPEC;
-    addrHints.ai_socktype = SOCK_DGRAM;
-    addrHints.ai_flags = AI_PASSIVE;
-    addrHints.ai_protocol = 0;
-    addrHints.ai_canonname = NULL;
-    addrHints.ai_addr = NULL;
-    addrHints.ai_next = NULL;
-    char port[] = "50000";
-    int soc, r;
-    if ((r = getaddrinfo(NULL, port, &addrHints, &addrResult)) != 0) {
-        cout << "Error getting address information." << gai_strerror(r) << endl;
+    getsockname(serverD, socketServer, &defaultLen);
+    cout << "Getting socket name, actual address length " << defaultLen << endl;
+    cout << "Server starts listen, ";
+    if (listen(serverD, 1024) == -1) {
+        cout << "error.\n";
         return;
     }
-    for (addrInfo = addrResult; addrInfo != NULL; addrInfo = addrInfo->ai_next) {
-        soc = socket(addrInfo->ai_family, addrInfo->ai_socktype,
-                     addrInfo->ai_protocol);
-        if (soc == -1)
-            continue;
-        if (bind(soc, addrInfo->ai_addr, addrInfo->ai_addrlen) == 0) {
-            cout << "Bind socket ok." << endl;
-            break;
-        }
-        close(soc);
-    }
-    if (addrInfo == NULL) {
-        cout << "Could not bind socket." << endl;
+    cout << "ok.\n";
+    int sD = accept(serverD, NULL, NULL);
+    if ( sD < 0 ) {
+        cout << "Something wrong with accept connection from client, exiting..." << endl;
+        close(sD);
         return;
     }
-    freeaddrinfo(addrResult);
-    sockaddr_storage peerAddr;
-    socklen_t peerAddrLen;
-    for (;;) {
-        peerAddrLen = sizeof(struct sockaddr_storage);
-        ssize_t nread = recvfrom(soc, buf, bufSize, 0, (struct sockaddr *) &peerAddr, &peerAddrLen);
-        if (nread == -1) {
-            cout << "Request failed, waiting next one." << endl;
-            continue;
-        }
-        char host[NI_MAXHOST], service[NI_MAXSERV];
-        r = getnameinfo((struct sockaddr *) &peerAddr, peerAddrLen, host, NI_MAXHOST, service, NI_MAXSERV, NI_NUMERICSERV);
-        if (r == 0)
-            cout << "Received " << nread << " bytes from " << host << ":" << service << endl;
-        else
-            cout << "Error getting name information: " << gai_strerror(r) << endl;
-        if (sendto(soc, buf, nread, 0, (struct sockaddr *) &peerAddr, peerAddrLen) != nread)
-            cout << "Error sending response." << endl;
+    int bytesSend = 0;
+    while ( serverShots < serverShotsMax || bytesSend == -1 ) {
+        time_t stamp = chrono::system_clock::to_time_t(chrono::system_clock::now());
+        string timeStamp = ctime(&stamp);
+        bytesSend = send(sD, timeStamp.data(), timeStamp.size(), 0);
+        cout << "Local server: " << bytesSend << " bytes sent " << endl;
+        this_thread::sleep_for(chrono::seconds(1));
+        serverShots++;
     }
-    */
-}
-
-void SimpleClient::stopDebugServer()
-{
-    cout << "Stopping debug server " << close(debugServer) << endl;
+    cout << "Server closing connection with client, " << close(sD) << endl;
+    cout << "Stopping local server, " << close(serverD) << endl;
 }
