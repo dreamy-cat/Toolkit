@@ -5,6 +5,7 @@
 #include <string>
 #include <future>
 #include <map>
+#include <vector>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -14,19 +15,20 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <memory.h>
+#include <signal.h>
 
 class SimpleClient {
 public:
     explicit SimpleClient();
     ~SimpleClient() = default;
     void request();
-    static void runLocalServer();
+    static void runLocalServer(int maxShots = 5);
+    static void connectionClosed(int);
 protected:
 private:
     SimpleClient(const SimpleClient&);
     SimpleClient& operator=(const SimpleClient&);
     SimpleClient(SimpleClient&&);
-    static int serverShots, serverShotsMax, totalClients;
 };
 
 #endif

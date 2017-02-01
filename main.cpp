@@ -2,7 +2,7 @@
 
 int main(int argc, char *argv[])
 {
-    std::future<void> localServer(async(std::launch::async, SimpleClient::runLocalServer));
+    std::future<void> localServer(async(std::launch::async, SimpleClient::runLocalServer, 5));
     SimpleClient client;
     localServer.wait();
     return 0;

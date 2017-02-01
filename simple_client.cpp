@@ -2,21 +2,15 @@
 
 using namespace std;
 
-int SimpleClient::serverShots = 0;
-
-int SimpleClient::serverShotsMax = 5;
-
-int SimpleClient::totalClients = 0;
-
 SimpleClient::SimpleClient()
 {
     this_thread::sleep_for(chrono::seconds(1));
-    cout << "Creating simple client, id = " << totalClients++ << endl;
+    cout << "Creating simple client." << endl;
     const char serverIP[] = "127.0.0.1";
     int serverPort = 50000;
     int socketClient = socket(AF_INET, SOCK_STREAM, 0);
     if (socketClient < 0) {
-        cout << "Can't open socket." << endl;
+        cout << "Can't open socket for client." << endl;
         return;
     }
     sockaddr socketAddr;
@@ -24,25 +18,56 @@ SimpleClient::SimpleClient()
     sPtr->sin_family = AF_INET;
     sPtr->sin_port = serverPort;
     if ( inet_pton(AF_INET, serverIP, (void*)&sPtr->sin_addr) == -1 ) {
-        cout << "Error in address." << endl;
+        cout << "Client, error in address." << endl;
         return;
     }
-    cout << "Creating socket ok.\n";
-    cout << "Connecting... " << connect(socketClient, &socketAddr, INET_ADDRSTRLEN) << endl;
-    char buffer[32];
+    cout << "Client creating socket ok.\n";
+    if ( connect(socketClient, &socketAddr, INET_ADDRSTRLEN) ) {
+        cout << "Client can't connect to the server " << serverIP << ":" << serverPort << endl;
+        return;
+    }
+    cout << "Client connecting to server " << serverIP << ":" << serverPort << endl;
+    char buffer[0x10000];
     int bytesReaded;
     auto start = chrono::system_clock::now();
-    while ( chrono::system_clock::now() < start + chrono::seconds(3)) {
-        bytesReaded = recv(socketClient, buffer, 32, 0);
+//    while ( chrono::system_clock::now() < start + chrono::seconds(1)) {
+        bytesReaded = recv(socketClient, buffer, 0x10000, 0);
         string timeStamp(buffer, bytesReaded);
-        cout << "Client recived  " << bytesReaded << " bytes, buffer: " << timeStamp;
+        cout << "Client recived " << bytesReaded << " bytes." << endl; // buffer: " << timeStamp;
         // this_thread::sleep_for(chrono::seconds(1));
-    }
+//    }
     cout << "Client closing socket, " << close(socketClient) << endl;
+    vector<float> received(4096, 0);
+    for (int i = 0; i < 4096*sizeof(float); i++)
+        ((char*)received.data())[i] = buffer[i];
+    cout << "Vector: ";
+    int sum = 0;
+    for (auto &element : received) {
+        // cout << element;
+        sum += element;
+    }
+    cout << "\nSum = " << sum << endl;
+    cout << "Quick try with many threads:\n";
+    for (int i = 0; i < 8; i++) {
+        async(launch::async, [i, received]() {
+            cout << "Thread "  << i << ", sum: ";
+            int sum = 0;
+            for (int j = i * 512; j < (i+1)*512; j++)
+                sum += received[j];
+            cout << sum << endl;
+        });
+    }
+
 }
 
-void SimpleClient::runLocalServer()
+void SimpleClient::connectionClosed(int)
 {
+    cout << "Signal handler called, connection closed by remote client." << endl;
+}
+
+void SimpleClient::runLocalServer(int maxShots)
+{
+    signal(SIGPIPE, SimpleClient::connectionClosed);
     cout << "Starting local server and getting system configuration.\n";
     char addrString[64];
     map<int, string> addrType = { {AF_INET, "IPv4"}, {AF_INET6, "IPv6"} };
@@ -71,17 +96,6 @@ void SimpleClient::runLocalServer()
         cout << ", net id: " << netEntry->n_net;
         cout << endl;
     }
-    /*
-    cout << "All services available or empty if error(/etc/services) by default.\n";
-    servent *serviceEntry;
-    while ( (serviceEntry = getservent()) != nullptr ) {
-        cout << "Service: " << serviceEntry->s_name;
-        cout << ", aliases: " << serviceEntry->s_aliases;
-        cout << ", port: " << serviceEntry->s_port;
-        cout << ", protocol: " << serviceEntry->s_proto;
-        cout << endl;
-    }
-    */
     cout << "Addreses information list: \n";
     addrinfo *aiList, *aiPtr, hint;
     hint.ai_flags = AI_CANONNAME;
@@ -126,27 +140,28 @@ void SimpleClient::runLocalServer()
     socklen_t defaultLen = INET_ADDRSTRLEN;
     addr = inet_ntop(AF_INET, &sPtr->sin_addr, addrString, INET_ADDRSTRLEN);
     getsockname(serverD, socketServer, &defaultLen);
-    cout << "Getting socket name, actual address length " << defaultLen << endl;
-    cout << "Server starts listen, ";
+    cout << "Getting socket name, default address length in bytes: " << defaultLen << endl;
     if (listen(serverD, 1024) == -1) {
-        cout << "error.\n";
+        cout << "Server error listening at port " << sPtr->sin_port << ".\n";
         return;
     }
-    cout << "ok.\n";
+    cout << "Server starts listen at port " << sPtr->sin_port << ", ok.\n";
     int sD = accept(serverD, NULL, NULL);
     if ( sD < 0 ) {
         cout << "Something wrong with accept connection from client, exiting..." << endl;
         close(sD);
         return;
     }
-    int bytesSend = 0;
-    while ( serverShots < serverShotsMax || bytesSend == -1 ) {
+    int bytesSend = 0, serverShots = 0;
+    vector<float> data(4096, 2);
+    while ( serverShots < maxShots && bytesSend != -1 ) {
         time_t stamp = chrono::system_clock::to_time_t(chrono::system_clock::now());
         string timeStamp = ctime(&stamp);
-        bytesSend = send(sD, timeStamp.data(), timeStamp.size(), 0);
-        cout << "Local server: " << bytesSend << " bytes sent " << endl;
+        // bytesSend = send(sD, timeStamp.data(), timeStamp.size(), 0);
+        cout << "Local server: " << bytesSend << " bytes sent, total shots " << ++serverShots << endl;
+        bytesSend = send(sD, data.data(), 4096*sizeof(float), 0);
+        cout << "Local server: " << bytesSend << " bytes sent, total shots " << ++serverShots << endl;
         this_thread::sleep_for(chrono::seconds(1));
-        serverShots++;
     }
     cout << "Server closing connection with client, " << close(sD) << endl;
     cout << "Stopping local server, " << close(serverD) << endl;
