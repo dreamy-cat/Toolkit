@@ -57,7 +57,102 @@ SimpleClient::SimpleClient()
             cout << sum << endl;
         });
     }
+    // Fast testing...
+    const int mSize = 4;
+    float am[mSize][mSize] = { 2, 1, 0, 0, 3, 2, 0, 0, 1, 1, 3, 4, 2, -1, 2, 3 };
+    float bm[mSize][mSize] = { 2, 1, 0, 0, 3, 2, 0, 0, 1, 1, 3, 4, 2, -1, 2, 3 };
+    float im[mSize][mSize];
+    for (int i = 0; i < mSize*mSize; ++i) {
+        // am[i / mSize][i % mSize] = (i+1)*2;
+        im[i / mSize][i % mSize] = (i / mSize == i % mSize);
+    }
+    cout << "Simple matrix A and I:\n";
+    outputMatrix(am, im);
+    vector< future<void> > localTasks;
+    for (int k = 0; k < mSize; ++k) {
+        localTasks.clear();
+        float mult = am[k][k];
+        int perThread = mSize / activeThreads;
+        cout << "Elements per thread in line " << perThread << ", remains " << mSize % activeThreads << endl;
+        for (int i = 0; i < activeThreads; i++) {
+            localTasks.push_back(async(launch::async, [mult, &am, &im, perThread, i, k]() {
+                for (int j = i * perThread; j < (i+1) * perThread; ++j) {
+                    cout << "i = " << i << " j = " << j << endl;
+                    am[k][j] /= mult;
+                    im[k][j] /= mult;
+                }
+            }));
+        }
+        for (int j = perThread * activeThreads; j < mSize; j++) {
+            am[k][j] /= mult;
+            im[k][j] /= mult;
+        }
+        for (auto &e : localTasks) e.get();
+        cout << "Iteration " << k << ":\n";
+        outputMatrix(am, im);
+        auto lower = async(launch::async, [k, &am, &im]() {
+            for (int i = k + 1; i < mSize; ++i) {
+                float multLower = am[i][k];
+                cout << "Lower, multiplicator " << multLower << endl;
+                for (int j = 0; j < mSize; ++j) {
+                    am[i][j] = am[i][j] - am[k][j] * multLower;
+                    im[i][j] = im[i][j] - im[k][j] * multLower;
+                }
+            }
 
+        });
+
+/*
+        cout << "Iteration " << k << ":\n";
+        outputMatrix(am, im);
+*/
+        auto upper = async(launch::async, [k, &am, &im]() {
+            for (int i = k - 1; i >= 0; --i) {
+                float multUpper= am[i][k];
+                cout << "Upper, multiplicator " << multUpper << "\n";
+                cout << "i " << i << " k " << k << endl;
+                for (int j = 0 ; j < mSize; ++j) {
+                    am[i][j] = am[i][j] - am[k][j] * multUpper;
+                    im[i][j] = im[i][j] - im[k][j] * multUpper;
+                }
+            }
+        });
+
+        lower.get();
+        upper.get();
+
+        cout << "Iteration " << k << ":\n";
+        outputMatrix(am, im);
+    }
+    // Quick check result.
+    float rm[mSize][mSize];
+    int sumE = 0;
+    cout << "Quick check.\n";
+    for (int i = 0; i < mSize; i++) {
+        for (int j = 0; j < mSize; j++) {
+            rm[i][j] = 0;
+            for (int k = 0; k < mSize; k++) {
+                rm[i][j] += bm[i][k] * im[k][j];
+            }
+            sumE += trunc(rm[i][j]);
+            cout << trunc(rm[i][j]) << "\t";
+        }
+        cout << "\n";
+    }
+    cout << "Sum of matirix elements " << sumE << endl;
+}
+
+void SimpleClient::outputMatrix(float am[mS][mS], float im[mS][mS])
+{
+    int mSize = mS;
+    for (int i = 0; i < mSize; i++) {
+        for (int j = 0; j < mSize; j++)
+            cout << am[i][j] << "\t";
+        cout << "|\t";
+        for (int j = 0; j < mSize; j++)
+            cout << im[i][j] << "\t";
+        cout << endl;
+    }
 }
 
 void SimpleClient::connectionClosed(int)
