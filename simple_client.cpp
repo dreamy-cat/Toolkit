@@ -73,7 +73,11 @@ SimpleClient::SimpleClient()
         localTasks.clear();
         float mult = am[k][k];
         int perThread = mSize / activeThreads;
-        cout << "Elements per thread in line " << perThread << ", remains " << mSize % activeThreads << endl;
+        if ( mSize % activeThreads ) {
+            cout << "Matrix size must be divided by threads without remainder." << endl;
+            return;
+        }
+        cout << "Elements per thread in line " << perThread << endl;
         for (int i = 0; i < activeThreads; i++) {
             localTasks.push_back(async(launch::async, [mult, &am, &im, perThread, i, k]() {
                 for (int j = i * perThread; j < (i+1) * perThread; ++j) {
@@ -83,48 +87,28 @@ SimpleClient::SimpleClient()
                 }
             }));
         }
-        for (int j = perThread * activeThreads; j < mSize; j++) {
-            am[k][j] /= mult;
-            im[k][j] /= mult;
+        for (auto& e : localTasks) e.get();
+
+        cout << "Iteration " << k << ":\n";
+        outputMatrix(am, im);
+        localTasks.clear();
+        for (int t = 0; t < activeThreads; t++) {
+            localTasks.push_back(async(launch::async, [&am, &im, perThread, t, k]() {
+                for (int i = t * perThread; i < (t + 1) * perThread; i++) {
+                    if ( i != k) {
+                        float multiplier = am[i][k];
+                        cout << "Multilpler " << multiplier << endl;
+                        for (int j = 0; j < mSize; ++j) {
+                            am[i][j] = am[i][j] - am[k][j] * multiplier;
+                            im[i][j] = im[i][j] - im[k][j] * multiplier;
+                        }
+                    }
+                }
+            }));
         }
-        for (auto &e : localTasks) e.get();
-        cout << "Iteration " << k << ":\n";
-        outputMatrix(am, im);
-        auto lower = async(launch::async, [k, &am, &im]() {
-            for (int i = k + 1; i < mSize; ++i) {
-                float multLower = am[i][k];
-                cout << "Lower, multiplicator " << multLower << endl;
-                for (int j = 0; j < mSize; ++j) {
-                    am[i][j] = am[i][j] - am[k][j] * multLower;
-                    im[i][j] = im[i][j] - im[k][j] * multLower;
-                }
-            }
-
-        });
-
-/*
-        cout << "Iteration " << k << ":\n";
-        outputMatrix(am, im);
-*/
-        auto upper = async(launch::async, [k, &am, &im]() {
-            for (int i = k - 1; i >= 0; --i) {
-                float multUpper= am[i][k];
-                cout << "Upper, multiplicator " << multUpper << "\n";
-                cout << "i " << i << " k " << k << endl;
-                for (int j = 0 ; j < mSize; ++j) {
-                    am[i][j] = am[i][j] - am[k][j] * multUpper;
-                    im[i][j] = im[i][j] - im[k][j] * multUpper;
-                }
-            }
-        });
-
-        lower.get();
-        upper.get();
-
         cout << "Iteration " << k << ":\n";
         outputMatrix(am, im);
     }
-    // Quick check result.
     float rm[mSize][mSize];
     int sumE = 0;
     cout << "Quick check.\n";
@@ -249,6 +233,9 @@ void SimpleClient::runLocalServer(int maxShots)
     }
     int bytesSend = 0, serverShots = 0;
     vector<float> data(4096, 2);
+    srand(0);
+    for ( auto &e : data )
+        e = rand();
     while ( serverShots < maxShots && bytesSend != -1 ) {
         time_t stamp = chrono::system_clock::to_time_t(chrono::system_clock::now());
         string timeStamp = ctime(&stamp);
