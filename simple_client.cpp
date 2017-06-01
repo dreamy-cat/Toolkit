@@ -7,6 +7,9 @@ SimpleClient::SimpleClient()
     this_thread::sleep_for(chrono::seconds(1));
     cout << "Creating simple client." << endl;
     const char serverIP[] = "127.0.0.1";
+    const int timeStampSize = 32;
+    char *buffer = new char[timeStampSize];
+
     int serverPort = 50000;
     int socketClient = socket(AF_INET, SOCK_STREAM, 0);
     if (socketClient < 0) {
@@ -27,116 +30,110 @@ SimpleClient::SimpleClient()
         return;
     }
     cout << "Client connecting to server " << serverIP << ":" << serverPort << endl;
-    char buffer[0x10000];
     int bytesReaded;
     auto start = chrono::system_clock::now();
-//    while ( chrono::system_clock::now() < start + chrono::seconds(1)) {
-        bytesReaded = recv(socketClient, buffer, 0x10000, 0);
+    while ( chrono::system_clock::now() < start + chrono::seconds(3)) {
+        bytesReaded = recv(socketClient, buffer, timeStampSize, 0);
         string timeStamp(buffer, bytesReaded);
-        cout << "Client recived " << bytesReaded << " bytes." << endl; // buffer: " << timeStamp;
-        // this_thread::sleep_for(chrono::seconds(1));
-//    }
+        cout << "Client recived " << bytesReaded << " bytes, " << "buffer: " << timeStamp;
+    }
     cout << "Client closing socket, " << close(socketClient) << endl;
-    vector<float> received(4096, 0);
-    for (int i = 0; i < 4096*sizeof(float); i++)
-        ((char*)received.data())[i] = buffer[i];
-    cout << "Vector: ";
-    int sum = 0;
-    for (auto &element : received) {
-        // cout << element;
-        sum += element;
+}
+
+void SimpleClient::runExperiment()
+{
+    int mSize, totalElements, activeThreads;
+    mSize = defaultMSize;
+    activeThreads = defaultThreads;
+    totalElements = mSize * mSize;
+    cout << "Run a simple task to find invertible matrix.\n"
+         << "Random square matrix with size " << mSize
+         << ", total elements " << totalElements
+         << ", using " << activeThreads << " threads.\n";
+    if (mSize <= 0 || mSize > 0x8000 || activeThreads <= 0 || activeThreads > 0x100 >> mSize % activeThreads != 0 ) {
+        cout << "Matrix size must be in [1..0x8000].\n"
+             << "Threads must be in [1..0x100] and matrix size must be divided by threads without remainder." << endl;
+        return;
     }
-    cout << "\nSum = " << sum << endl;
-    cout << "Quick try with many threads:\n";
-    for (int i = 0; i < 8; i++) {
-        async(launch::async, [i, received]() {
-            cout << "Thread "  << i << ", sum: ";
-            int sum = 0;
-            for (int j = i * 512; j < (i+1)*512; j++)
-                sum += received[j];
-            cout << sum << endl;
-        });
+    vector<float> am, bm, im;
+    am.reserve(totalElements);
+    bm.reserve(totalElements);
+    im.reserve(totalElements);
+    srand(0);
+    for (int i = 0; i < mSize; ++i) {
+        for (int j = 0; j < mSize; ++j) {
+            am[i*mSize + j] = float(rand() % 10);
+            cout << am[i * mSize + j] << " ";
+            bm[i*mSize + j] = am[i * mSize + j];
+            if (i == j) im[i*mSize + j] = 1; else im[i * mSize + j] = 0;
+        }
+        cout << endl;
     }
-    // Fast testing...
-    const int mSize = 4;
-    float am[mSize][mSize] = { 2, 1, 0, 0, 3, 2, 0, 0, 1, 1, 3, 4, 2, -1, 2, 3 };
-    float bm[mSize][mSize] = { 2, 1, 0, 0, 3, 2, 0, 0, 1, 1, 3, 4, 2, -1, 2, 3 };
-    float im[mSize][mSize];
-    for (int i = 0; i < mSize*mSize; ++i) {
-        // am[i / mSize][i % mSize] = (i+1)*2;
-        im[i / mSize][i % mSize] = (i / mSize == i % mSize);
-    }
-    cout << "Simple matrix A and I:\n";
-    outputMatrix(am, im);
+    cout << "Simple matrix A and I:\n" << endl;
     vector< future<void> > localTasks;
     for (int k = 0; k < mSize; ++k) {
         localTasks.clear();
-        float mult = am[k][k];
+        float mult = am[k * mSize + k];
         int perThread = mSize / activeThreads;
-        if ( mSize % activeThreads ) {
-            cout << "Matrix size must be divided by threads without remainder." << endl;
-            return;
-        }
-        cout << "Elements per thread in line " << perThread << endl;
+//        cout << "Elements per thread in line " << perThread << endl;
         for (int i = 0; i < activeThreads; i++) {
-            localTasks.push_back(async(launch::async, [mult, &am, &im, perThread, i, k]() {
+            localTasks.push_back(async(launch::async, [mSize, mult, &am, &im, perThread, i, k]() {
                 for (int j = i * perThread; j < (i+1) * perThread; ++j) {
-                    cout << "i = " << i << " j = " << j << endl;
-                    am[k][j] /= mult;
-                    im[k][j] /= mult;
+//                    cout << "i = " << i << " j = " << j << endl;
+                    am[k*mSize + j] /= mult;
+                    im[k*mSize + j] /= mult;
                 }
             }));
         }
         for (auto& e : localTasks) e.get();
-
-        cout << "Iteration " << k << ":\n";
-        outputMatrix(am, im);
+        //cout << "Iteration " << k << ":\n";
+        //outputMatrix(am, im);
         localTasks.clear();
         for (int t = 0; t < activeThreads; t++) {
-            localTasks.push_back(async(launch::async, [&am, &im, perThread, t, k]() {
+            localTasks.push_back(async(launch::async, [mSize, &am, &im, perThread, t, k]() {
                 for (int i = t * perThread; i < (t + 1) * perThread; i++) {
                     if ( i != k) {
-                        float multiplier = am[i][k];
-                        cout << "Multilpler " << multiplier << endl;
+                        float multiplier = am[i*mSize + k];
+                        // cout << "Multilpler " << multiplier << endl;
                         for (int j = 0; j < mSize; ++j) {
-                            am[i][j] = am[i][j] - am[k][j] * multiplier;
-                            im[i][j] = im[i][j] - im[k][j] * multiplier;
+                            am[i*mSize + j] = am[i*mSize + j] - am[k*mSize + j] * multiplier;
+                            im[i*mSize + j] = im[i*mSize + j] - im[k*mSize + j] * multiplier;
                         }
                     }
                 }
             }));
         }
-        cout << "Iteration " << k << ":\n";
-        outputMatrix(am, im);
+        // cout << "Iteration " << k << ":\n";
+        // outputMatrix(am, im);
     }
-    float rm[mSize][mSize];
-    int sumE = 0;
-    cout << "Quick check.\n";
-    for (int i = 0; i < mSize; i++) {
-        for (int j = 0; j < mSize; j++) {
-            rm[i][j] = 0;
-            for (int k = 0; k < mSize; k++) {
-                rm[i][j] += bm[i][k] * im[k][j];
-            }
-            sumE += trunc(rm[i][j]);
-            cout << trunc(rm[i][j]) << "\t";
-        }
-        cout << "\n";
-    }
-    cout << "Sum of matirix elements " << sumE << endl;
-}
 
-void SimpleClient::outputMatrix(float am[mS][mS], float im[mS][mS])
-{
-    int mSize = mS;
-    for (int i = 0; i < mSize; i++) {
-        for (int j = 0; j < mSize; j++)
-            cout << am[i][j] << "\t";
-        cout << "|\t";
-        for (int j = 0; j < mSize; j++)
-            cout << im[i][j] << "\t";
-        cout << endl;
+    cout << "Result of matrix:\n";
+//    outputMatrix(am, im);
+    for (auto& e : localTasks) e.get();
+    localTasks.clear();
+    vector<float> rm(totalElements, 0);
+    int checkSum = 0;
+    cout << "Quick check.\n";
+    int perThread = mSize / activeThreads;
+    for (int t = 0; t < activeThreads; t++) {
+        for (int i = t * perThread; i < (t + 1) * perThread; i++) {
+            localTasks.push_back(async(launch::async, [mSize, &rm, &bm, &im, i, &checkSum]() {
+                for (int j = 0; j < mSize; j++) {
+                    rm[i*mSize + j] = 0;
+                    for (int k = 0; k < mSize; k++) {
+                        rm[i*mSize + j] += bm[i*mSize + k] * im[k*mSize + j];
+                    }
+                    if (abs(rm[i*mSize + j]) >= 0.5) checkSum++;   // think later.
+                    // cout << rm[i][j] << "\t";
+                }
+            }));
+        }
     }
+    for (auto &e : localTasks) e.get();
+    // cout << "\n";
+    if ( checkSum == mSize ) cout << "Check ok, sum " << checkSum << " equal size of matrix " << mSize << endl; else
+        cout << "Something goes wrong, sum " << checkSum << " differs from size of matrix " << mSize << endl;
+
 }
 
 void SimpleClient::connectionClosed(int)
@@ -232,16 +229,10 @@ void SimpleClient::runLocalServer(int maxShots)
         return;
     }
     int bytesSend = 0, serverShots = 0;
-    vector<float> data(4096, 2);
-    srand(0);
-    for ( auto &e : data )
-        e = rand();
     while ( serverShots < maxShots && bytesSend != -1 ) {
         time_t stamp = chrono::system_clock::to_time_t(chrono::system_clock::now());
         string timeStamp = ctime(&stamp);
-        // bytesSend = send(sD, timeStamp.data(), timeStamp.size(), 0);
-        cout << "Local server: " << bytesSend << " bytes sent, total shots " << ++serverShots << endl;
-        bytesSend = send(sD, data.data(), 4096*sizeof(float), 0);
+        bytesSend = send(sD, timeStamp.data(), timeStamp.size(), 0);
         cout << "Local server: " << bytesSend << " bytes sent, total shots " << ++serverShots << endl;
         this_thread::sleep_for(chrono::seconds(1));
     }

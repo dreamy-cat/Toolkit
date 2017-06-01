@@ -6,6 +6,7 @@
 #include <future>
 #include <map>
 #include <vector>
+#include <cmath>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -16,15 +17,15 @@
 #include <netdb.h>
 #include <memory.h>
 #include <signal.h>
-#include <cmath>
+
+// #include "range/v3/all.hpp"
 
 class SimpleClient {
 public:
     explicit SimpleClient();
     ~SimpleClient() = default;
-    void request();
-    static const int mS = 4, activeThreads = 4;
-    void outputMatrix(float am[mS][mS], float[mS][mS]);
+    void runExperiment();
+    static const int defaultMSize = 3, defaultThreads = 1;
     static void runLocalServer(int maxShots = 5);
     static void connectionClosed(int);
 protected:
