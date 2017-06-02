@@ -2,15 +2,37 @@
 
 using namespace std;
 
-SimpleClient::SimpleClient()
+SimpleClient::SimpleClient(int argc, char *argv[])
 {
     this_thread::sleep_for(chrono::seconds(1));
     cout << "Creating simple client." << endl;
-    const char serverIP[] = "127.0.0.1";
+    cout << "Command line parameters to settings.\n";
+    for (int i = 1; i < argc - 1 ; i += 2)
+        settings[argv[i]] = argv[i+1];
+    string serverAddress("127.0.0.1:50000");
+    int serverPort = 50000;
+    if (settings.find("--server") != settings.end()) {
+        serverAddress = settings.at("--server");
+        string ipPort(serverAddress, serverAddress.find(':') + 1, 5);
+        serverPort = atoi(ipPort.data());
+        string ip(serverAddress, 0, serverAddress.find(':'));
+        serverAddress = ip;
+    } else
+        cout << "Key '--server' not found, using default 127.0.0.1:50000.\n";
+    if (settings.find("--size") != settings.end())
+        defaultMSize = atoi(settings.at("--size").data());
+    else {
+        cout << "Key '--size' not found, using default size 3.\n";
+        defaultMSize = 3;
+    }
+    if (settings.find("--threads") != settings.end())
+        defaultThreads = atoi(settings.at("--threads").data());
+    else {
+        cout << "Key '--threads' not found, only single thread will be using.\n";
+        defaultThreads = 1;
+    }
     const int timeStampSize = 32;
     char *buffer = new char[timeStampSize];
-
-    int serverPort = 50000;
     int socketClient = socket(AF_INET, SOCK_STREAM, 0);
     if (socketClient < 0) {
         cout << "Can't open socket for client." << endl;
@@ -20,16 +42,17 @@ SimpleClient::SimpleClient()
     sockaddr_in *sPtr = (sockaddr_in*)&socketAddr;
     sPtr->sin_family = AF_INET;
     sPtr->sin_port = serverPort;
-    if ( inet_pton(AF_INET, serverIP, (void*)&sPtr->sin_addr) == -1 ) {
+    if ( inet_pton(AF_INET, serverAddress.data(), (void*)&sPtr->sin_addr) == -1 ) {
         cout << "Client, error in address." << endl;
         return;
     }
     cout << "Client creating socket ok.\n";
+
     if ( connect(socketClient, &socketAddr, INET_ADDRSTRLEN) ) {
-        cout << "Client can't connect to the server " << serverIP << ":" << serverPort << endl;
+        cout << "Client can't connect to the server " << serverAddress << ":" << serverPort << endl;
         return;
     }
-    cout << "Client connecting to server " << serverIP << ":" << serverPort << endl;
+    cout << "Client connecting to server " << serverAddress << ":" << serverPort << endl;
     int bytesReaded;
     auto start = chrono::system_clock::now();
     while ( chrono::system_clock::now() < start + chrono::seconds(3)) {
@@ -37,6 +60,7 @@ SimpleClient::SimpleClient()
         string timeStamp(buffer, bytesReaded);
         cout << "Client recived " << bytesReaded << " bytes, " << "buffer: " << timeStamp;
     }
+
     cout << "Client closing socket, " << close(socketClient) << endl;
 }
 
@@ -48,9 +72,9 @@ void SimpleClient::runExperiment()
     totalElements = mSize * mSize;
     cout << "Run a simple task to find invertible matrix.\n"
          << "Random square matrix with size " << mSize
-         << ", total elements " << totalElements
+         << ", total float elements " << totalElements
          << ", using " << activeThreads << " threads.\n";
-    if (mSize <= 0 || mSize > 0x8000 || activeThreads <= 0 || activeThreads > 0x100 >> mSize % activeThreads != 0 ) {
+    if (mSize <= 0 || mSize > 0x8000 || activeThreads <= 0 || activeThreads > 0x100 || mSize % activeThreads != 0 ) {
         cout << "Matrix size must be in [1..0x8000].\n"
              << "Threads must be in [1..0x100] and matrix size must be divided by threads without remainder." << endl;
         return;
@@ -133,7 +157,6 @@ void SimpleClient::runExperiment()
     // cout << "\n";
     if ( checkSum == mSize ) cout << "Check ok, sum " << checkSum << " equal size of matrix " << mSize << endl; else
         cout << "Something goes wrong, sum " << checkSum << " differs from size of matrix " << mSize << endl;
-
 }
 
 void SimpleClient::connectionClosed(int)
@@ -141,7 +164,7 @@ void SimpleClient::connectionClosed(int)
     cout << "Signal handler called, connection closed by remote client." << endl;
 }
 
-void SimpleClient::runLocalServer(int maxShots)
+void SimpleClient::runLocalServer(int serverShots)
 {
     signal(SIGPIPE, SimpleClient::connectionClosed);
     cout << "Starting local server and getting system configuration.\n";
@@ -228,12 +251,12 @@ void SimpleClient::runLocalServer(int maxShots)
         close(sD);
         return;
     }
-    int bytesSend = 0, serverShots = 0;
-    while ( serverShots < maxShots && bytesSend != -1 ) {
+    int bytesSend = 0, shots = 0;
+    while ( shots < serverShots && bytesSend != -1 ) {
         time_t stamp = chrono::system_clock::to_time_t(chrono::system_clock::now());
         string timeStamp = ctime(&stamp);
         bytesSend = send(sD, timeStamp.data(), timeStamp.size(), 0);
-        cout << "Local server: " << bytesSend << " bytes sent, total shots " << ++serverShots << endl;
+        cout << "Local server: " << bytesSend << " bytes sent, total shots " << ++shots << endl;
         this_thread::sleep_for(chrono::seconds(1));
     }
     cout << "Server closing connection with client, " << close(sD) << endl;

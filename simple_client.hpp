@@ -22,14 +22,15 @@
 
 class SimpleClient {
 public:
-    explicit SimpleClient();
+    SimpleClient(int argc, char *argv[]);
     ~SimpleClient() = default;
     void runExperiment();
-    static const int defaultMSize = 3, defaultThreads = 1;
-    static void runLocalServer(int maxShots = 5);
+    int defaultMSize, defaultThreads;
+    static void runLocalServer(int serverShots);
     static void connectionClosed(int);
 protected:
 private:
+    std::map<std::string, std::string> settings;
     SimpleClient(const SimpleClient&);
     SimpleClient& operator=(const SimpleClient&);
     SimpleClient(SimpleClient&&);
