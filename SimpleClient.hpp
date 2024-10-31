@@ -1,4 +1,4 @@
-#ifndef SIMPLE_CLIENT_HPP
+﻿#ifndef SIMPLE_CLIENT_HPP
 #define SIMPLE_CLIENT_HPP
 
 #include <iostream>
@@ -8,18 +8,22 @@
 #include <vector>
 #include <cmath>
 
-#include <sys/socket.h>
-#include <sys/types.h>
+// #include <sys/socket.h>
+
+// #include <sys/types.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+
+// #include <arpa/inet.h>
+// #include <netdb.h>
+
 #include <memory.h>
 #include <signal.h>
 
 // #include "range/v3/all.hpp"
 
+/*
 class SimpleClient {
 public:
     SimpleClient(int argc, char *argv[]);
@@ -35,5 +39,7 @@ private:
     SimpleClient& operator=(const SimpleClient&);
     SimpleClient(SimpleClient&&);
 };
+
+*/
 
 #endif

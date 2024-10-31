@@ -1,4 +1,6 @@
-#include "simple_client.hpp"
+﻿#include "SimpleClient.hpp"
+
+/*
 
 using namespace std;
 
@@ -154,6 +156,7 @@ void SimpleClient::runExperiment()
         }
     }
     for (auto &e : localTasks) e.get();
+
     // cout << "\n";
     if ( checkSum == mSize ) cout << "Check ok, sum " << checkSum << " equal size of matrix " << mSize << endl; else
         cout << "Something goes wrong, sum " << checkSum << " differs from size of matrix " << mSize << endl;
@@ -262,3 +265,6 @@ void SimpleClient::runLocalServer(int serverShots)
     cout << "Server closing connection with client, " << close(sD) << endl;
     cout << "Stopping local server, " << close(serverD) << endl;
 }
+
+*/
+
