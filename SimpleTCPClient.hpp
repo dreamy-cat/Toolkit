@@ -1,5 +1,5 @@
-﻿#ifndef SIMPLE_CLIENT_HPP
-#define SIMPLE_CLIENT_HPP
+﻿#ifndef SIMPLE_TCP_CLIENT_HPP
+#define SIMPLE_TCP_CLIENT_HPP
 
 #include <iostream>
 #include <string>

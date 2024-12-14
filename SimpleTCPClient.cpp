@@ -1,8 +1,6 @@
-﻿#include "SimpleClient.hpp"
+﻿#include "SimpleTCPClient.hpp"
 
 /*
-
-using namespace std;
 
 SimpleClient::SimpleClient(int argc, char *argv[])
 {
@@ -267,4 +265,3 @@ void SimpleClient::runLocalServer(int serverShots)
 }
 
 */
-

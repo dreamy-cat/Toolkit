@@ -27,3 +27,7 @@
 *.exe
 *.out
 *.app
+
+# Toolkit custom.
+*.user
+release
