@@ -1,12 +1,13 @@
 #include "Toolkit.hpp"
 #include "./ui_Toolkit.h"
 
-Toolkit::Toolkit(QWidget *parent) : QMainWindow(parent), ui(new Ui::Toolkit)
-{
-    ui->setupUi(this);
+Toolkit::Toolkit(QWidget *parent) : QMainWindow(parent)
+{   // Конструктор основного интрфейса.
+    interface = new Ui::Toolkit;
+    interface->Ui::Toolkit::setupUi(this);
 }
 
 Toolkit::~Toolkit()
-{
-    delete ui;
+{   // Деструктор основного интерфейса.
+    delete interface;
 }

@@ -12,14 +12,14 @@ class Toolkit;
 QT_END_NAMESPACE
 
 class Toolkit : public QMainWindow
-{
+{   // Основной класс окна и интерфейса.
     Q_OBJECT
 public:
     Toolkit(QWidget *parent = nullptr);
     ~Toolkit();
 protected:
 private:
-    Ui::Toolkit *ui;
+    Ui::Toolkit *interface;
 };
 
 #endif	// TOOLKIT_HPP

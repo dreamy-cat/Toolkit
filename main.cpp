@@ -31,6 +31,8 @@
 // - адаптировать настроить и доработать;
 // - по критерям не забыть результат;
 
+// Тема работы должна соотносится с обозначенными целями.
+
 // Добавить как вычислительный эксперимент и перевод.
 /*
 void simpleTCPConnection(void)
@@ -53,12 +55,22 @@ void simpleTCPConnection(void)
 }
 */
 
+#include "UDPServer.hpp"
+
+// Модули проверить, открыть сокеты, прислать данные, интерфейс(и в ОБС), потоки.
+
 int main(int argc, char *argv[])
 {
-    // int c = 'A', d = 'B';
-    // printf("Char addr %hX, second %hX char is '%c'.\n", &c, (&d), *(&c));
     QApplication app(argc, argv);
-    Toolkit toolkit;
-    toolkit.show();
-    return app.exec();
+    //Toolkit toolkit;
+    // toolkit.show();
+    // return app.exec();
+    UDPServer serverA("A", 0xC000, 0xC400);
+    // UDPServer serverB("B", 0xC001, 0xC002);
+    return 0;
 }
+
+
+
+
+
