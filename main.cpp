@@ -3,6 +3,7 @@
 // #include <QTranslator>
 
 #include "Toolkit.hpp"
+#include "UDPServer.hpp"
 
 // #include "SimpleTCPClient.hpp"
 
@@ -55,8 +56,6 @@ void simpleTCPConnection(void)
 }
 */
 
-#include "UDPServer.hpp"
-
 // Модули проверить, открыть сокеты, прислать данные, интерфейс(и в ОБС), потоки.
 
 int main(int argc, char *argv[])
@@ -66,6 +65,7 @@ int main(int argc, char *argv[])
     // toolkit.show();
     // return app.exec();
     UDPServer serverA("A", 0xC000, 0xC400);
+    serverA.start();
     // UDPServer serverB("B", 0xC001, 0xC002);
     return 0;
 }

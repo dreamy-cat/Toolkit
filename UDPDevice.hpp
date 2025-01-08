@@ -3,21 +3,22 @@
 
 #include <QString>
 
-// Абстрактный класс устройства UDP.
-//
-//
+// Базовый или не исключается полностью абстрактный класс устройства UDP.
 
 class UDPDevice {
 public:
-    explicit UDPDevice(QString name, quint16 port);
+    explicit UDPDevice(QString name, quint16 port = 0); // Или автоматически.
     UDPDevice(const UDPDevice& device) = delete;
     UDPDevice(UDPDevice&& device) = delete;
     virtual ~UDPDevice();       // Подумать над чист. вирт.
+    // Копирование устройства
     UDPDevice& operator=(const UDPDevice& rv);
+    QString readName() const;
 protected:
-private:
     QString name;
     quint16 s;
+private:
+
 };
 
 #endif  // UDP_DEVICE_HPP

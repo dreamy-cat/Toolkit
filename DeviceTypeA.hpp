@@ -6,14 +6,13 @@
 // Класс устройств типа А, подумать над производной схемой и её отображением.
 
 class DeviceTypeA : public UDPDevice
-{   //
+{
 public:
-    explicit DeviceTypeA(QString name, quint16 port);
+    explicit DeviceTypeA(QString name, quint16 port);   // авто.
     DeviceTypeA(const DeviceTypeA& device);
-    DeviceTypeA(const DeviceTypeA&& device);
-    virtual ~DeviceTypeA();
+    DeviceTypeA(DeviceTypeA&& device);      // const fix
+    virtual ~DeviceTypeA();     // final
     DeviceTypeA& operator=(const DeviceTypeA& device);
-protected:
 private:
 };
 
